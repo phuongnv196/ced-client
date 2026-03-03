@@ -1,0 +1,62 @@
+.custom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border-radius: 0.25rem; /* rounded */
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.custom-btn:hover {
+  opacity: 0.9;
+}
+
+/* Variants */
+.custom-btn-primary {
+  background-color: #2563eb; /* bg-blue-600 */
+  color: #ffffff;
+}
+
+.custom-btn-primary:hover {
+  background-color: #1d4ed8; /* hover:bg-blue-700 */
+}
+
+.custom-btn-secondary {
+  background-color: #f1f5f9; /* bg-slate-100 */
+  color: #0f172a; /* text-slate-900 */
+}
+
+.custom-btn-secondary:hover {
+  background-color: #e2e8f0; /* hover:bg-slate-200 */
+}
+
+.custom-btn-ghost {
+  background-color: transparent;
+  color: #64748b; /* text-slate-500 */
+}
+
+.custom-btn-ghost:hover {
+  background-color: #f1f5f9; /* hover:bg-slate-100 */
+}
+
+/* Sizes */
+.custom-btn-sm {
+  padding: 0.25rem 0.5rem; /* px-2 py-1 */
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
+}
+
+.custom-btn-md {
+  padding: 0.5rem 1.5rem; /* px-6 py-2 */
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.25rem;
+}
+
+.custom-btn-lg {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
