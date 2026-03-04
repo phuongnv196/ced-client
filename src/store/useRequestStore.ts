@@ -21,6 +21,12 @@ export interface RequestTab {
     url: string;
     params: DataGridRow[];
     headers: DataGridRow[];
+    auth: {
+        type: 'noauth' | 'apikey' | 'bearer' | 'basic';
+        apiKey: { key: string; value: string; addTo: 'Header' | 'Query Params' };
+        bearer: string;
+        basic: { username: string; password: string };
+    };
     body: {
         type: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw' | 'binary' | 'graphql';
         rawType: 'Text' | 'JavaScript' | 'JSON' | 'HTML' | 'XML';
@@ -58,9 +64,11 @@ interface RequestState {
     updateTab: (id: string, updates: Partial<RequestTab>) => void;
     updateActiveTab: (updates: Partial<RequestTab>) => void;
     setVariable: (key: string, value: string) => void;
+    deleteVariable: (key: string) => void;
     setCollections: (collections: RequestCollection[]) => void;
     addToHistory: (tab: RequestTab) => void;
     clearHistory: () => void;
+    duplicateTab: (id: string) => void;
 }
 
 const createDefaultTab = (): RequestTab => ({
@@ -70,6 +78,12 @@ const createDefaultTab = (): RequestTab => ({
     url: '{{baseUrl}}/models/session?query=1',
     params: [{ id: '1', enabled: true, key: 'query', value: '1', description: '' }],
     headers: [{ id: '1', enabled: true, key: 'Accept', value: 'application/json', description: '' }],
+    auth: {
+        type: 'noauth',
+        apiKey: { key: '', value: '', addTo: 'Header' },
+        bearer: '',
+        basic: { username: '', password: '' },
+    },
     body: {
         type: 'none',
         rawType: 'JSON',
@@ -79,8 +93,8 @@ const createDefaultTab = (): RequestTab => ({
         binaryFile: null,
     },
     scripts: {
-        preRequest: '// Write a script that executes before the request is sent\n',
-        postResponse: '// Write a script that executes after the response is received\n',
+        preRequest: '',
+        postResponse: '',
     },
     response: null,
     isDirty: false,
@@ -164,6 +178,14 @@ export const useRequestStore = create<RequestState>()(
                 }));
             },
 
+            deleteVariable: (key: string) => {
+                set((state: RequestState) => {
+                    const next = { ...state.variables };
+                    delete next[key];
+                    return { variables: next };
+                });
+            },
+
             setCollections: (collections: RequestCollection[]) => {
                 set({ collections });
             },
@@ -176,6 +198,26 @@ export const useRequestStore = create<RequestState>()(
 
             clearHistory: () => {
                 set({ history: [] });
+            },
+
+            duplicateTab: (id: string) => {
+                const tab = get().tabs.find(t => t.id === id);
+                if (!tab) return;
+                const newTab: RequestTab = {
+                    ...tab,
+                    id: Math.random().toString(36).substring(7),
+                    name: `${tab.name} (Copy)`,
+                    isDirty: false,
+                    response: null,
+                };
+                set((state) => ({
+                    tabs: [
+                        ...state.tabs.slice(0, state.tabs.findIndex(t => t.id === id) + 1),
+                        newTab,
+                        ...state.tabs.slice(state.tabs.findIndex(t => t.id === id) + 1),
+                    ],
+                    activeTabId: newTab.id,
+                }));
             },
         }),
         {

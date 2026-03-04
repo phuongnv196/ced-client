@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import clsx from 'clsx';
 import { Editor } from '@monaco-editor/react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
@@ -43,9 +43,10 @@ const JsonNode: React.FC<{ data: any; depth?: number; keyName?: string }> = ({ d
                     </button>
                     {open && (
                         <div>
-                            {entries.map(([k, v]: [any, any]) => (
-                                <JsonNode key={k} data={v} depth={depth + 1} keyName={isArray ? undefined : String(k)} />
-                            ))}
+                            {entries.map((entry: any[]) => {
+                                const [k, v] = entry;
+                                return <JsonNode key={k} data={v} depth={depth + 1} keyName={isArray ? undefined : String(k)} />;
+                            })}
                             <div style={{ marginLeft: 0 }} className="text-slate-500">{brackets[1]}</div>
                         </div>
                     )}
@@ -120,12 +121,26 @@ export const ResponsePanel: React.FC<ResponsePanelProps> = ({ response }) => {
     const [activeTab, setActiveTab] = useState('Body');
     const [viewMode, setViewMode] = useState<'pretty' | 'raw' | 'preview'>('pretty');
 
+    // All derived values computed via useMemo — hooks must be before any early return
+    const contentType = useMemo(() => response ? detectContentType(response) : 'text', [response]);
+    const rawText = useMemo(() => response ? getRawText(response.data) : '', [response]);
+    const prettyText = useMemo(() => response ? getPrettyText(response.data, contentType) : '', [response, contentType]);
+    const monacoLang = useMemo(() => getMonacoLanguage(contentType, viewMode), [contentType, viewMode]);
+    const editorValue = useMemo(() => viewMode === 'raw' ? rawText : prettyText, [viewMode, rawText, prettyText]);
+    const parsedJson = useMemo(() => {
+        if (!response || contentType !== 'json') return null;
+        try {
+            return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        } catch { return null; }
+    }, [response, contentType]);
+
     const statusCode = response?.status || 0;
     const statusText = response?.statusText || '';
     const time = response?.time ? `${response.time} ms` : '0 ms';
     const size = response?.size || '0 B';
+    const contentTypeLabel = ({ json: 'JSON', html: 'HTML', xml: 'XML', image: 'IMAGE', text: 'TEXT' } as Record<string, string>)[contentType];
 
-    // Empty state
+    // Empty state — AFTER all hooks
     if (!response) {
         return (
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
@@ -144,22 +159,6 @@ export const ResponsePanel: React.FC<ResponsePanelProps> = ({ response }) => {
             </div>
         );
     }
-
-    const contentType = detectContentType(response);
-    const rawText = getRawText(response.data);
-    const prettyText = getPrettyText(response.data, contentType);
-    const monacoLang = getMonacoLanguage(contentType, viewMode);
-    const editorValue = viewMode === 'raw' ? rawText : prettyText;
-
-    // Parsed JSON object for tree view
-    const parsedJson = useCallback((): any => {
-        if (contentType !== 'json') return null;
-        try {
-            return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        } catch { return null; }
-    }, [response.data, contentType])();
-
-    const contentTypeLabel = { json: 'JSON', html: 'HTML', xml: 'XML', image: 'IMAGE', text: 'TEXT' }[contentType];
 
     // Decide what to show in the body area
     const renderBodyContent = () => {
