@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { Tabs } from '../Tabs';
 import { UrlBar } from '../UrlBar';
@@ -7,6 +7,10 @@ import { Authorization } from '../Authorization';
 import { HeadersTab } from '../HeadersTab';
 import { BodyTab } from '../BodyTab';
 import { ScriptsTab } from '../ScriptsTab';
+import { ResponsePanel } from '../ResponsePanel';
+import { useRequestStore } from '../../store/useRequestStore';
+import { sendRequest } from '../../services/RequestEngine';
+import { resolveVariables } from '../../utils/variableResolver';
 import clsx from 'clsx';
 import './MainContent.css';
 
@@ -42,21 +46,102 @@ const updateQuery = (url: string, params: DataGridRow[]): string => {
 };
 
 export const MainContent: React.FC = () => {
-    const [method, setMethod] = useState('GET');
-    const [url, setUrl] = useState('https://api.example.com/models/session?query=1');
-    const [activeTab, setActiveTab] = useState('Headers');
-    const [params, setParams] = useState<DataGridRow[]>(parseQuery('https://api.example.com/models/session?query=1'));
-    const [headers, setHeaders] = useState<DataGridRow[]>([]);
+    const { tabs, activeTabId, updateActiveTab, variables } = useRequestStore();
+    const activeTab = tabs.find(t => t.id === activeTabId);
+
+    if (!activeTab) {
+        return <div className="flex-1 bg-slate-50 flex items-center justify-center text-slate-400">Loading...</div>;
+    }
+
+    const { method, url, params, headers, response, activeSubTab, body } = activeTab;
+
+    const handleSend = async () => {
+        // Resolve variables
+        const resolvedUrl = resolveVariables(url, variables);
+
+        const headerObj: Record<string, string> = {};
+        headers.filter(h => h.enabled && h.key).forEach(h => {
+            headerObj[h.key] = resolveVariables(h.value, variables);
+        });
+
+        const paramObj: Record<string, string> = {};
+        params.filter(p => p.enabled && p.key).forEach(p => {
+            paramObj[p.key] = resolveVariables(p.value, variables);
+        });
+
+        let requestBody: any = null;
+        let requestBodyType = 'json';
+
+        if (body.type === 'raw') {
+            const resolvedContent = resolveVariables(body.content, variables);
+            try {
+                requestBody = body.rawType === 'JSON' ? JSON.parse(resolvedContent) : resolvedContent;
+                requestBodyType = body.rawType.toLowerCase();
+            } catch {
+                requestBody = resolvedContent;
+                requestBodyType = 'text';
+            }
+        } else if (body.type === 'form-data') {
+            const fd: Record<string, any> = {};
+            body.formData.filter(f => f.enabled && f.key).forEach(f => {
+                fd[f.key] = f.type === 'file' ? f.fileValue : resolveVariables(f.value, variables);
+            });
+            requestBody = fd;
+            requestBodyType = 'form-data';
+        } else if (body.type === 'x-www-form-urlencoded') {
+            const ue: Record<string, string> = {};
+            body.urlencoded.filter(f => f.enabled && f.key).forEach(f => {
+                ue[f.key] = resolveVariables(f.value, variables);
+            });
+            requestBody = ue;
+            requestBodyType = 'x-www-form-urlencoded';
+        }
+
+        try {
+            const apiResponse = await sendRequest({
+                method,
+                url: resolvedUrl,
+                headers: headerObj,
+                params: paramObj,
+                body: requestBody,
+                bodyType: requestBodyType
+            });
+
+            updateActiveTab({
+                response: apiResponse
+            });
+        } catch (error: any) {
+            updateActiveTab({
+                response: {
+                    status: 0,
+                    statusText: 'Error',
+                    headers: {},
+                    data: error.message || 'Error occurred',
+                    time: 0,
+                    size: '0 B'
+                }
+            });
+        }
+    };
 
     const handleUrlChange = (newUrl: string) => {
-        setUrl(newUrl);
-        setParams(parseQuery(newUrl));
+        updateActiveTab({
+            url: newUrl,
+            params: parseQuery(newUrl)
+        });
     };
 
     const handleParamsChange = (newParams: DataGridRow[]) => {
-        setParams(newParams);
-        setUrl(updateQuery(url, newParams));
+        updateActiveTab({
+            params: newParams,
+            url: updateQuery(url, newParams)
+        });
     };
+
+    const setActiveSubTab = (tab: string) => {
+        updateActiveTab({ activeSubTab: tab });
+    };
+
     return (
         <div className="flex-1 flex flex-col bg-slate-50 main-content-container">
             <Tabs />
@@ -65,8 +150,9 @@ export const MainContent: React.FC = () => {
             <UrlBar
                 method={method}
                 url={url}
-                onChangeMethod={setMethod}
+                onChangeMethod={(m) => updateActiveTab({ method: m })}
                 onChangeUrl={handleUrlChange}
+                onSend={handleSend}
             />
 
             <Group orientation="vertical" className="flex-1">
@@ -76,30 +162,32 @@ export const MainContent: React.FC = () => {
                         {['Params', 'Authorization', 'Headers', 'Body', 'Scripts'].map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => setActiveSubTab(tab)}
                                 className={clsx(
                                     "pb-2 hover:text-slate-800 transition-colors",
-                                    activeTab === tab ? "text-slate-800 border-b-2 border-orange-500" : ""
+                                    activeSubTab === tab ? "text-slate-800 border-b-2 border-orange-500" : ""
                                 )}
                             >
-                                {tab} {tab === 'Headers' && <span className="text-xs font-semibold text-slate-400">(10)</span>}
+                                {tab} {tab === 'Headers' && headers.length > 0 && (
+                                    <span className="text-xs font-semibold text-slate-400">({headers.length})</span>
+                                )}
                             </button>
                         ))}
                     </div>
                     <div className="flex-1 overflow-hidden h-full flex flex-col bg-white">
-                        {activeTab === 'Params' && (
+                        {activeSubTab === 'Params' && (
                             <DataGrid rows={params} onChange={handleParamsChange} />
                         )}
-                        {activeTab === 'Body' && (
+                        {activeSubTab === 'Body' && (
                             <BodyTab />
                         )}
-                        {activeTab === 'Authorization' && (
+                        {activeSubTab === 'Authorization' && (
                             <Authorization />
                         )}
-                        {activeTab === 'Headers' && (
-                            <HeadersTab rows={headers} onChange={setHeaders} />
+                        {activeSubTab === 'Headers' && (
+                            <HeadersTab rows={headers} onChange={(h) => updateActiveTab({ headers: h })} />
                         )}
-                        {activeTab === 'Scripts' && (
+                        {activeSubTab === 'Scripts' && (
                             <ScriptsTab />
                         )}
                     </div>
@@ -108,13 +196,7 @@ export const MainContent: React.FC = () => {
                 <Separator className="h-1 bg-slate-200 hover:bg-blue-400 transition-colors cursor-row-resize" />
 
                 <Panel defaultSize={35} minSize={20} className="bg-white flex flex-col">
-                    <div className="flex border-b border-slate-200 text-sm px-4 pt-2 gap-6 font-medium text-slate-500 bg-slate-50">
-                        <button className="pb-2 text-slate-800 border-b-2 border-orange-500">Response</button>
-                        <button className="pb-2 hover:text-slate-800">History</button>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-                        Click Send to get a response
-                    </div>
+                    <ResponsePanel response={response} />
                 </Panel>
             </Group>
         </div>

@@ -23,11 +23,21 @@ export const DataGrid: React.FC<DataGridProps> = ({ rows, onChange, supportFile 
 
     // Ensure there is always one empty row at the bottom
     useEffect(() => {
-        if (rows.length === 0 || rows[rows.length - 1].key !== '' || rows[rows.length - 1].value !== '' || rows[rows.length - 1].description !== '') {
-            onChange([
-                ...rows,
-                { id: Math.random().toString(36).substring(7), enabled: false, key: '', value: '', description: '' }
-            ]);
+        const needsEmptyRow = rows.length === 0 || (
+            rows[rows.length - 1].key !== '' ||
+            rows[rows.length - 1].value !== '' ||
+            rows[rows.length - 1].description !== ''
+        );
+
+        if (needsEmptyRow) {
+            const newEmptyRow: DataGridRow = {
+                id: Math.random().toString(36).substring(7),
+                enabled: false,
+                key: '',
+                value: '',
+                description: ''
+            };
+            onChange([...rows, newEmptyRow]);
         }
     }, [rows, onChange]);
 

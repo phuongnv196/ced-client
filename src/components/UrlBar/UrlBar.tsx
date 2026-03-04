@@ -18,9 +18,10 @@ interface UrlBarProps {
     url: string;
     onChangeMethod: (method: string) => void;
     onChangeUrl: (url: string) => void;
+    onSend: () => void;
 }
 
-export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onChangeUrl }) => {
+export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onChangeUrl, onSend }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     return (
@@ -73,13 +74,13 @@ export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onC
                     placeholder="Enter request URL"
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                            alert(`Sending ${method} request to ${url}`);
+                            onSend();
                         }
                     }}
                 />
             </div>
 
-            <Button variant="primary" size="md" onClick={() => alert(`Sending ${method} request to ${url}`)}>
+            <Button variant="primary" size="md" onClick={onSend}>
                 Send
             </Button>
         </div>

@@ -17,19 +17,19 @@
   - [x] **Tab Authorization:** Thiết kế layout chia 2 cột dạng Master-Detail chọn Auth Type (API Key, Basic...).
   - [x] **Tab Headers:** Xây dựng Data-grid tương tự Params. Bổ sung Auto-generated headers và tính năng Presets.
   - [x] **Tab Body:** Hệ thống Radio box điều hướng, cơ chế chuyển đổi giữa Grid-form và không gian nhập liệu Raw.
-  - [ ] **Tab Scripts:** Layout dọc chia Pre-request và Post-response đi kèm các snippet phụ trợ.
+  - [x] **Tab Scripts:** Layout dọc chia Pre-request và Post-response đi kèm các snippet phụ trợ.
   - [x] Tích hợp đầy đủ trình soạn thảo `Monaco Editor` (Scripts).
 - [ ] Xây dựng Response Panel (Nửa dưới khu vực trung tâm):
   - [x] Thêm dải Resizer kéo thả điều chỉnh kích thước dọc x ngang mượt mà.
   - [x] Xây dựng Component Empty State "Click Send to get a response" kèm minh hoạ.
-  - [ ] Hiện thực hoá bộ khung hiển thị Metadata (Status code, thời gian phản hồi, kích thước nội dung trả về).
+  - [x] Hiện thực hoá bộ khung hiển thị Metadata (Status code, thời gian phản hồi, kích thước nội dung trả về).
 
 ## Giai đoạn 3: Tính năng Lõi (Core Logic & Networking)
-- [ ] Tách nhỏ chức năng từ giao diện tĩnh của `App.tsx` thành các Components độc lập (`Sidebar`, `RequestTabs`, `CodeEditor`, `DataGrid`...).
-- [ ] Cấu hình kiến trúc `Zustand` Store để quản lý State tập trung cho Collection Files, Tabs hiện tại, và trạng thái cấu hình Request.
-- [ ] Xây dựng engine thực thi HTTP Request qua Electron Main Process hoặc `axios` chuẩn để bỏ qua rào cản CORS.
-- [ ] Logic nhận diện biến môi trường (Ví dụ tự thay chuỗi `{{baseUrl}}/api` bằng giá trị tương ứng).
-- [ ] Khởi chạy `IndexedDB/localforage` để tự động lưu lại phiên làm việc (Cửa sổ bật lại không mất dữ liệu).
+- [x] Tách nhỏ chức năng từ giao diện tĩnh của `App.tsx` thành các Components độc lập (`Sidebar`, `RequestTabs`, `CodeEditor`, `DataGrid`...).
+- [x] Cấu hình kiến trúc `Zustand` Store để quản lý State tập trung cho Collection Files, Tabs hiện tại, và trạng thái cấu hình Request.
+- [x] Xây dựng engine thực thi HTTP Request qua Electron Main Process hoặc `axios` chuẩn để bỏ qua rào cản CORS.
+- [x] Logic nhận diện biến môi trường (Ví dụ tự thay chuỗi `{{baseUrl}}/api` bằng giá trị tương ứng).
+- [x] Khởi chạy `IndexedDB/localforage` để tự động lưu lại phiên làm việc (Cửa sổ bật lại không mất dữ liệu).
 
 ## Giai đoạn 4: Hoàn thiện (Polishing & Advanced)
 - [ ] Tính năng Beautify: Nút format làm đẹp Code JSON.

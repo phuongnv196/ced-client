@@ -10,7 +10,8 @@ const createWindow = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webSecurity: false
     }
   });
 

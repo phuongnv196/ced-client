@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Editor, type Monaco } from '@monaco-editor/react';
+import { useRequestStore } from '../../store/useRequestStore';
 
 const snippets = [
-    { title: 'Get an global variable', code: 'cedClient.globals.get("variable_key");' },
-    { title: 'Set an global variable', code: 'cedClient.globals.set("variable_key", "variable_value");' },
+    { title: 'Get a global variable', code: 'cedClient.globals.get("variable_key");' },
+    { title: 'Set a global variable', code: 'cedClient.globals.set("variable_key", "variable_value");' },
     { title: 'Get an environment variable', code: 'cedClient.environment.get("variable_key");' },
     { title: 'Set an environment variable', code: 'cedClient.environment.set("variable_key", "variable_value");' },
     { title: 'Status code: Code is 200', code: 'cedClient.test("Status code is 200", function () {\n    cedClient.response.to.have.status(200);\n});' },
@@ -13,34 +14,23 @@ const snippets = [
 ];
 
 export const ScriptsTab: React.FC = () => {
-    const [activeScript, setActiveScript] = useState<'pre-request' | 'post-response'>('pre-request');
-    const [preRequestScript, setPreRequestScript] = useState('// Write a script that executes before the request is sent\n// console.log("Before request");');
-    const [postResponseScript, setPostResponseScript] = useState('// Write a script that executes after the response is received\n// cedClient.test("Status code is 200", function () { ... });');
+    const { tabs, activeTabId, updateActiveTab } = useRequestStore();
+    const activeTab = tabs.find(t => t.id === activeTabId);
 
-    const handleSnippetClick = (code: string) => {
-        if (activeScript === 'pre-request') {
-            setPreRequestScript((prev) => prev ? `${prev}\n${code}` : code);
-        } else {
-            setPostResponseScript((prev) => prev ? `${prev}\n${code}` : code);
-        }
-    };
-
+    const [activeScriptType, setActiveScriptType] = useState<'pre-request' | 'post-response'>('pre-request');
     const monacoRef = useRef<Monaco | null>(null);
 
     const updateExtraLib = (monaco: Monaco, type: 'pre-request' | 'post-response') => {
         const libContent = `
 declare const cedClient: {
-    /** Global variable management */
     globals: {
         get(key: string): any;
         set(key: string, value: any): void;
     };
-    /** Environment variable management */
     environment: {
         get(key: string): any;
         set(key: string, value: any): void;
     };
-    /** The HTTP request data (Pre-request) */
     request: {
         headers: {
             add(header: { key: string; value: string }): void;
@@ -55,7 +45,6 @@ declare const cedClient: {
         body: any;
     };
 ${type === 'post-response' ? `
-    /** The HTTP response data (Post-response) */
     response: {
         text(): string;
         json(): any;
@@ -65,9 +54,7 @@ ${type === 'post-response' ? `
             };
         };
     };
-    /** Define a test case */
     test(name: string, fn: () => void): void;
-    /** Expect an assertion */
     expect(val: any): any;
 ` : ''}
 };
@@ -80,22 +67,37 @@ ${type === 'post-response' ? `
 
     const handleEditorBeforeMount = (monaco: Monaco) => {
         monacoRef.current = monaco;
-        updateExtraLib(monaco, activeScript);
+        updateExtraLib(monaco, activeScriptType);
     };
 
     useEffect(() => {
         if (monacoRef.current) {
-            updateExtraLib(monacoRef.current, activeScript);
+            updateExtraLib(monacoRef.current, activeScriptType);
         }
-    }, [activeScript]);
+    }, [activeScriptType]);
+
+    if (!activeTab) return null;
+
+    const { scripts } = activeTab;
+
+    const handleSnippetClick = (code: string) => {
+        if (activeScriptType === 'pre-request') {
+            updateActiveTab({
+                scripts: { ...scripts, preRequest: scripts.preRequest ? `${scripts.preRequest}\n${code}` : code }
+            });
+        } else {
+            updateActiveTab({
+                scripts: { ...scripts, postResponse: scripts.postResponse ? `${scripts.postResponse}\n${code}` : code }
+            });
+        }
+    };
 
     return (
         <div className="flex h-full w-full bg-white">
-            {/* Left Navigation */}
             <div className="w-48 bg-white border-r border-slate-200 flex flex-col py-3 px-2 gap-1 shrink-0">
                 <button
-                    onClick={() => setActiveScript('pre-request')}
-                    className={`text-left px-3 py-2 rounded text-sm transition-colors ${activeScript === 'pre-request'
+                    onClick={() => setActiveScriptType('pre-request')}
+                    className={`text-left px-3 py-2 rounded text-sm transition-colors ${activeScriptType === 'pre-request'
                         ? 'bg-slate-100 text-slate-800 font-medium'
                         : 'text-slate-600 hover:bg-slate-50'
                         }`}
@@ -103,8 +105,8 @@ ${type === 'post-response' ? `
                     Pre-request
                 </button>
                 <button
-                    onClick={() => setActiveScript('post-response')}
-                    className={`text-left px-3 py-2 rounded text-sm transition-colors ${activeScript === 'post-response'
+                    onClick={() => setActiveScriptType('post-response')}
+                    className={`text-left px-3 py-2 rounded text-sm transition-colors ${activeScriptType === 'post-response'
                         ? 'bg-slate-100 text-slate-800 font-medium'
                         : 'text-slate-600 hover:bg-slate-50'
                         }`}
@@ -113,48 +115,32 @@ ${type === 'post-response' ? `
                 </button>
             </div>
 
-            {/* Editor Area */}
             <div className="flex-1 w-full h-full pt-1">
-                {activeScript === 'pre-request' ? (
-                    <Editor
-                        height="100%"
-                        language="javascript"
-                        theme="light"
-                        value={preRequestScript}
-                        onChange={(val) => setPreRequestScript(val || '')}
-                        beforeMount={handleEditorBeforeMount}
-                        options={{
-                            minimap: { enabled: false },
-                            scrollBeyondLastLine: false,
-                            fontSize: 13,
-                            fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                            wordWrap: 'on',
-                            lineNumbersMinChars: 3,
-                            folding: true,
-                        }}
-                    />
-                ) : (
-                    <Editor
-                        height="100%"
-                        language="javascript"
-                        theme="light"
-                        value={postResponseScript}
-                        onChange={(val) => setPostResponseScript(val || '')}
-                        beforeMount={handleEditorBeforeMount}
-                        options={{
-                            minimap: { enabled: false },
-                            scrollBeyondLastLine: false,
-                            fontSize: 13,
-                            fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                            wordWrap: 'on',
-                            lineNumbersMinChars: 3,
-                            folding: true,
-                        }}
-                    />
-                )}
+                <Editor
+                    height="100%"
+                    language="javascript"
+                    theme="light"
+                    value={activeScriptType === 'pre-request' ? scripts.preRequest : scripts.postResponse}
+                    onChange={(val) => {
+                        if (activeScriptType === 'pre-request') {
+                            updateActiveTab({ scripts: { ...scripts, preRequest: val || '' } });
+                        } else {
+                            updateActiveTab({ scripts: { ...scripts, postResponse: val || '' } });
+                        }
+                    }}
+                    beforeMount={handleEditorBeforeMount}
+                    options={{
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        fontSize: 13,
+                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                        wordWrap: 'on',
+                        lineNumbersMinChars: 3,
+                        folding: true,
+                    }}
+                />
             </div>
 
-            {/* Snippets Sidebar */}
             <div className="w-64 border-l border-slate-200 bg-slate-50 flex flex-col h-full shrink-0">
                 <div className="text-xs font-semibold text-slate-500 uppercase px-4 py-2 border-b border-slate-200">
                     Snippets
