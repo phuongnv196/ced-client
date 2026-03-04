@@ -8,5 +8,8 @@ export default defineConfig({
     tailwindcss(),
     react()
   ],
+  optimizeDeps: {
+    include: ['localforage']
+  },
   base: './', // For electron relative paths
 })

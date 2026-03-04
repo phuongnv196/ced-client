@@ -8,6 +8,7 @@ interface ResponsePanelProps {
 
 export const ResponsePanel: React.FC<ResponsePanelProps> = ({ response }) => {
     const [activeTab, setActiveTab] = useState('Body');
+    const [viewMode, setViewMode] = useState<'pretty' | 'raw' | 'preview'>('pretty');
 
     // Data from response
     const hasResponse = !!response;
@@ -34,6 +35,43 @@ export const ResponsePanel: React.FC<ResponsePanelProps> = ({ response }) => {
             </div>
         );
     }
+
+    const formatBody = () => {
+        if (!response.data) return '';
+        if (viewMode === 'raw') return typeof response.data === 'object' ? JSON.stringify(response.data) : String(response.data);
+
+        if (typeof response.data === 'object') {
+            return JSON.stringify(response.data, null, 2);
+        }
+
+        // If text but looks like JSON, try to format it
+        if (typeof response.data === 'string') {
+            try {
+                return JSON.stringify(JSON.parse(response.data), null, 2);
+            } catch {
+                return response.data;
+            }
+        }
+
+        return String(response.data);
+    };
+
+    const isJson = () => {
+        if (!response.data) return false;
+        if (typeof response.data === 'object') return true;
+        if (typeof response.data === 'string' && response.data.startsWith('data:image')) return false;
+        try {
+            JSON.parse(response.data);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const isImage = () => {
+        const contentType = response.headers?.['content-type'] || '';
+        return contentType.includes('image/') || (typeof response.data === 'string' && response.data.startsWith('data:image/'));
+    };
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
@@ -79,31 +117,54 @@ export const ResponsePanel: React.FC<ResponsePanelProps> = ({ response }) => {
                     <div className="h-full flex flex-col">
                         <div className="flex items-center gap-4 px-4 py-2 border-b border-slate-100 text-xs text-slate-500 bg-white shrink-0">
                             <div className="flex gap-2">
-                                <button className="font-bold text-slate-800 hover:text-orange-600">Pretty</button>
-                                <button className="hover:text-orange-600">Raw</button>
-                                <button className="hover:text-orange-600">Preview</button>
+                                <button
+                                    onClick={() => setViewMode('pretty')}
+                                    className={clsx("transition-colors", viewMode === 'pretty' ? "font-bold text-slate-800" : "hover:text-orange-600")}
+                                >
+                                    Pretty
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('raw')}
+                                    className={clsx("transition-colors", viewMode === 'raw' ? "font-bold text-slate-800" : "hover:text-orange-600")}
+                                >
+                                    Raw
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('preview')}
+                                    className={clsx("transition-colors", viewMode === 'preview' ? "font-bold text-slate-800" : "hover:text-orange-600")}
+                                >
+                                    Preview
+                                </button>
                             </div>
                             <div className="w-px h-3 bg-slate-200"></div>
-                            <div className="text-slate-600 font-medium">
-                                {typeof response.data === 'object' ? 'JSON' : 'Text'}
+                            <div className="text-slate-600 font-medium uppercase">
+                                {isJson() ? 'JSON' : 'Text'}
                             </div>
                         </div>
-                        <div className="flex-1">
-                            <Editor
-                                height="100%"
-                                language={typeof response.data === 'object' ? "json" : "text"}
-                                value={typeof response.data === 'object' ? JSON.stringify(response.data, null, 2) : String(response.data)}
-                                options={{
-                                    readOnly: true,
-                                    minimap: { enabled: false },
-                                    scrollBeyondLastLine: false,
-                                    fontSize: 13,
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                    lineNumbersMinChars: 3,
-                                    renderLineHighlight: 'none',
-                                    folding: true,
-                                }}
-                            />
+                        <div className="flex-1 overflow-auto">
+                            {viewMode === 'preview' && isImage() ? (
+                                <div className="flex h-full items-center justify-center bg-slate-100 p-8">
+                                    <div className="bg-white p-2 rounded shadow-lg">
+                                        <img src={response.data} alt="Response binary" className="max-w-full max-h-[500px] object-contain" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <Editor
+                                    height="100%"
+                                    language={isJson() ? "json" : "text"}
+                                    value={formatBody()}
+                                    options={{
+                                        readOnly: true,
+                                        minimap: { enabled: false },
+                                        scrollBeyondLastLine: false,
+                                        fontSize: 13,
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                        lineNumbersMinChars: 3,
+                                        renderLineHighlight: 'none',
+                                        folding: true,
+                                    }}
+                                />
+                            )}
                         </div>
                     </div>
                 )}

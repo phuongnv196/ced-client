@@ -27,6 +27,7 @@ export interface RequestTab {
         content: string;
         formData: DataGridRow[];
         urlencoded: DataGridRow[];
+        binaryFile?: { name: string; size: number; type: string } | null;
     };
     scripts: {
         preRequest: string;
@@ -37,10 +38,18 @@ export interface RequestTab {
     activeSubTab: string;
 }
 
+export interface RequestCollection {
+    id: string;
+    name: string;
+    requests: Partial<RequestTab>[];
+}
+
 interface RequestState {
     tabs: RequestTab[];
     activeTabId: string | null;
     variables: Record<string, string>;
+    collections: RequestCollection[];
+    history: RequestTab[];
 
     // Actions
     addTab: (tab?: Partial<RequestTab>) => void;
@@ -49,6 +58,9 @@ interface RequestState {
     updateTab: (id: string, updates: Partial<RequestTab>) => void;
     updateActiveTab: (updates: Partial<RequestTab>) => void;
     setVariable: (key: string, value: string) => void;
+    setCollections: (collections: RequestCollection[]) => void;
+    addToHistory: (tab: RequestTab) => void;
+    clearHistory: () => void;
 }
 
 const createDefaultTab = (): RequestTab => ({
@@ -64,6 +76,7 @@ const createDefaultTab = (): RequestTab => ({
         content: '',
         formData: [{ id: '1', enabled: true, key: '', value: '', description: '' }],
         urlencoded: [{ id: '1', enabled: true, key: '', value: '', description: '' }],
+        binaryFile: null,
     },
     scripts: {
         preRequest: '// Write a script that executes before the request is sent\n',
@@ -92,6 +105,17 @@ export const useRequestStore = create<RequestState>()(
                 baseUrl: 'https://api.example.com',
                 apiKey: 'ced_test_123456'
             },
+            collections: [
+                {
+                    id: 'col_1',
+                    name: 'Github Copilot',
+                    requests: [
+                        { id: 'req_1', name: 'Create session', method: 'POST', url: '{{baseUrl}}/models/session' },
+                        { id: 'req_2', name: 'Get Models', method: 'GET', url: '{{baseUrl}}/models' },
+                    ]
+                }
+            ],
+            history: [],
 
             addTab: (tabData) => {
                 const newTab = { ...createDefaultTab(), ...tabData };
@@ -138,6 +162,20 @@ export const useRequestStore = create<RequestState>()(
                 set((state: RequestState) => ({
                     variables: { ...state.variables, [key]: value }
                 }));
+            },
+
+            setCollections: (collections: RequestCollection[]) => {
+                set({ collections });
+            },
+
+            addToHistory: (tab: RequestTab) => {
+                set((state) => ({
+                    history: [tab, ...state.history.filter(h => h.id !== tab.id)].slice(0, 50)
+                }));
+            },
+
+            clearHistory: () => {
+                set({ history: [] });
             },
         }),
         {

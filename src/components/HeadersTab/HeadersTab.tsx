@@ -25,29 +25,52 @@ export const HeadersTab: React.FC<HeadersParamsProps> = ({ rows, onChange }) => 
     };
 
     const applyPreset = (preset: 'json' | 'form') => {
-        // Lấy danh sách hiện tại, loại bỏ dòng trống
-        const newRows = [...rows.filter(r => r.key !== '' || r.value !== '')];
-
-        const addOrUpdateHeader = (key: string, value: string) => {
-            const index = newRows.findIndex(r => r.key.toLowerCase() === key.toLowerCase());
-            if (index >= 0) {
-                newRows[index] = { ...newRows[index], value, enabled: true };
-            } else {
-                newRows.push({
-                    id: Math.random().toString(36).substring(7),
-                    enabled: true,
-                    key,
-                    value,
-                    description: ''
-                });
+        // Remove existing Content-Type and Accept to avoid duplicates
+        let newRows = rows.filter(r => {
+            const key = r.key.toLowerCase();
+            if (preset === 'json') {
+                return key !== 'content-type' && key !== 'accept' && r.key !== '';
             }
-        };
+            if (preset === 'form') {
+                return key !== 'content-type' && r.key !== '';
+            }
+            return r.key !== '';
+        });
 
         if (preset === 'json') {
-            addOrUpdateHeader('Content-Type', 'application/json');
-            addOrUpdateHeader('Accept', 'application/json');
+            newRows.push({
+                id: Math.random().toString(36).substring(7),
+                enabled: true,
+                key: 'Content-Type',
+                value: 'application/json',
+                description: ''
+            });
+            newRows.push({
+                id: Math.random().toString(36).substring(7),
+                enabled: true,
+                key: 'Accept',
+                value: 'application/json',
+                description: ''
+            });
         } else if (preset === 'form') {
-            addOrUpdateHeader('Content-Type', 'application/x-www-form-urlencoded');
+            newRows.push({
+                id: Math.random().toString(36).substring(7),
+                enabled: true,
+                key: 'Content-Type',
+                value: 'application/x-www-form-urlencoded',
+                description: ''
+            });
+        }
+
+        // Add back an empty row at the end if not already present
+        if (newRows.length === 0 || newRows[newRows.length - 1].key !== '') {
+            newRows.push({
+                id: Math.random().toString(36).substring(7),
+                enabled: true,
+                key: '',
+                value: '',
+                description: ''
+            });
         }
 
         onChange(newRows);

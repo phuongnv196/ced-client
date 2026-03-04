@@ -32,13 +32,7 @@ export const sendRequest = async (config: RequestConfig): Promise<ResponseData> 
         headers,
         params,
         validateStatus: () => true, // Don't throw for 4xx/5xx
-        transformResponse: [(data) => {
-            try {
-                return JSON.parse(data);
-            } catch {
-                return data;
-            }
-        }]
+        responseType: 'arraybuffer' // Get raw bytes for all requests to handle binary
     };
 
     // Handle body
@@ -58,6 +52,9 @@ export const sendRequest = async (config: RequestConfig): Promise<ResponseData> 
                 searchParams.append(key, value);
             });
             axiosConfig.data = searchParams;
+        } else if (config.bodyType === 'binary' && config.body instanceof File) {
+            axiosConfig.data = config.body;
+            axiosConfig.headers!['Content-Type'] = config.body.type || 'application/octet-stream';
         } else {
             axiosConfig.data = config.body;
         }
@@ -68,17 +65,37 @@ export const sendRequest = async (config: RequestConfig): Promise<ResponseData> 
         const endTime = Date.now();
         const time = endTime - startTime;
 
-        // Calculate size
-        const sizeInBytes = JSON.stringify(response.data).length + JSON.stringify(response.headers).length;
-        const size = sizeInBytes > 1024
-            ? (sizeInBytes / 1024).toFixed(2) + ' KB'
-            : sizeInBytes + ' B';
+        const contentType = response.headers['content-type'] || '';
+        let data = response.data;
+
+        // Try to parse JSON if it looks like text
+        if (contentType.includes('application/json') || contentType.includes('text/')) {
+            const decoder = new TextDecoder('utf-8');
+            const text = decoder.decode(data);
+            try {
+                data = JSON.parse(text);
+            } catch {
+                data = text;
+            }
+        } else if (contentType.includes('image/')) {
+            // Convert arraybuffer to base64 for images
+            const base64 = btoa(new Uint8Array(data).reduce((d, byte) => d + String.fromCharCode(byte), ''));
+            data = `data:${contentType};base64,${base64}`;
+        }
+
+        // Calculate size from arraybuffer length
+        const sizeInBytes = response.data.byteLength;
+        const size = sizeInBytes > 1024 * 1024
+            ? (sizeInBytes / (1024 * 1024)).toFixed(2) + ' MB'
+            : sizeInBytes > 1024
+                ? (sizeInBytes / 1024).toFixed(2) + ' KB'
+                : sizeInBytes + ' B';
 
         return {
             status: response.status,
             statusText: response.statusText,
             headers: response.headers as Record<string, string>,
-            data: response.data,
+            data,
             time,
             size
         };

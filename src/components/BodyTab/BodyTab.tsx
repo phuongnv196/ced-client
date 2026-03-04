@@ -1,11 +1,24 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { DataGrid } from '../DataGrid';
 import { Editor } from '@monaco-editor/react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Upload, X, FileText, FileImage, FileArchive } from 'lucide-react';
 import { html as beautifyHtml } from 'js-beautify';
 import formatXml from 'xml-formatter';
 import { useRequestStore } from '../../store/useRequestStore';
+import { fileRegistry } from '../../utils/fileRegistry';
 import clsx from 'clsx';
+
+const getFileIcon = (mime: string) => {
+    if (mime.startsWith('image/')) return FileImage;
+    if (mime.includes('zip') || mime.includes('archive') || mime.includes('compressed')) return FileArchive;
+    return FileText;
+};
+
+const formatFileSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${bytes} B`;
+};
 
 const bodyTypes = [
     { id: 'none', label: 'none' },
@@ -26,9 +39,12 @@ const rawFormats = [
 export const BodyTab: React.FC = () => {
     const { tabs, activeTabId, updateActiveTab } = useRequestStore();
     const activeTab = tabs.find(t => t.id === activeTabId);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!activeTab) return null;
 
@@ -62,6 +78,47 @@ export const BodyTab: React.FC = () => {
             // Ignore parse errors
         }
     };
+
+    const handleFileSelect = useCallback((file: File) => {
+        setSelectedFile(file);
+        fileRegistry.set(activeTab.id, file);
+        // Save file metadata into dedicated binaryFile field, NOT body.content
+        setBodyUpdate({ binaryFile: { name: file.name, size: file.size, type: file.type } });
+    }, [activeTab.id, body]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleFileSelect(file);
+        // Reset so same file can be re-selected
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleFileSelect(file);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = () => setIsDragOver(false);
+
+    const clearFile = () => {
+        setSelectedFile(null);
+        fileRegistry.remove(activeTab.id);
+        setBodyUpdate({ binaryFile: null });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // Restore file info from store's binaryFile field when switching tabs
+    const displayFile = selectedFile
+        ? { name: selectedFile.name, size: selectedFile.size, type: selectedFile.type }
+        : body.binaryFile ?? null;
 
     return (
         <div className="flex flex-col h-full bg-white">
@@ -157,26 +214,75 @@ export const BodyTab: React.FC = () => {
 
                 {body.type === 'binary' && (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 text-sm gap-4 p-8">
-                        <label className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center w-full max-w-md hover:border-orange-400 hover:bg-orange-50/50 transition-colors cursor-pointer group flex flex-col items-center justify-center">
-                            <p className="text-slate-600 group-hover:text-orange-600 font-medium mb-1 truncate max-w-full px-4 text-center">
-                                Select a file
-                            </p>
-                            <p className="text-slate-400 text-xs">
-                                Drop a file here or click to browse
-                            </p>
-                            <input
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        // For now, we just mock storing file info in store
-                                        // Storing real file objects in JSON store is not recommended
-                                        setBodyUpdate({ content: `File: ${file.name}` });
-                                    }
-                                }}
-                            />
-                        </label>
+                        {/* Hidden real file input */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            className="hidden"
+                            onChange={handleInputChange}
+                        />
+
+                        {displayFile ? (
+                            /* File selected state */
+                            <div className="w-full max-w-md bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                                {(() => {
+                                    const IconComp = getFileIcon(displayFile.type || '');
+                                    return <IconComp className="w-10 h-10 text-orange-500 shrink-0" />;
+                                })()}
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-slate-800 truncate">{displayFile.name}</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        {formatFileSize(displayFile.size)}
+                                        {displayFile.type && ` • ${displayFile.type}`}
+                                    </p>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="text-xs text-blue-500 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                                    >
+                                        Change
+                                    </button>
+                                    <button
+                                        onClick={clearFile}
+                                        className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
+                                        title="Remove file"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Drop zone */
+                            <div
+                                className={clsx(
+                                    "border-2 border-dashed rounded-xl p-12 text-center w-full max-w-md transition-all cursor-pointer flex flex-col items-center justify-center gap-3",
+                                    isDragOver
+                                        ? "border-orange-400 bg-orange-50 scale-[0.99]"
+                                        : "border-slate-300 hover:border-orange-400 hover:bg-orange-50/30"
+                                )}
+                                onClick={() => fileInputRef.current?.click()}
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                            >
+                                <Upload className={clsx(
+                                    "w-10 h-10 transition-colors",
+                                    isDragOver ? "text-orange-500" : "text-slate-300"
+                                )} />
+                                <div>
+                                    <p className={clsx(
+                                        "font-semibold mb-0.5 transition-colors",
+                                        isDragOver ? "text-orange-600" : "text-slate-600"
+                                    )}>
+                                        {isDragOver ? 'Drop to select' : 'Select a file'}
+                                    </p>
+                                    <p className="text-slate-400 text-xs">
+                                        Drop a file here or <span className="text-orange-500 font-medium">click to browse</span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

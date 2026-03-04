@@ -3,14 +3,14 @@ import { Editor, type Monaco } from '@monaco-editor/react';
 import { useRequestStore } from '../../store/useRequestStore';
 
 const snippets = [
-    { title: 'Get a global variable', code: 'cedClient.globals.get("variable_key");' },
-    { title: 'Set a global variable', code: 'cedClient.globals.set("variable_key", "variable_value");' },
-    { title: 'Get an environment variable', code: 'cedClient.environment.get("variable_key");' },
-    { title: 'Set an environment variable', code: 'cedClient.environment.set("variable_key", "variable_value");' },
-    { title: 'Status code: Code is 200', code: 'cedClient.test("Status code is 200", function () {\n    cedClient.response.to.have.status(200);\n});' },
-    { title: 'Response body: Contains string', code: 'cedClient.test("Body matches string", function () {\n    cedClient.expect(cedClient.response.text()).to.include("string_you_want_to_search");\n});' },
-    { title: 'Response body: JSON value check', code: 'cedClient.test("Your test name", function () {\n    var jsonData = cedClient.response.json();\n    cedClient.expect(jsonData.value).to.eql(100);\n});' },
-    { title: 'Add a request header (Pre-request)', code: 'cedClient.request.headers.add({ key: "Authorization", value: "Bearer token" });' }
+    { title: 'Get a global variable', code: 'pm.globals.get("variable_key");' },
+    { title: 'Set a global variable', code: 'pm.globals.set("variable_key", "variable_value");' },
+    { title: 'Get an environment variable', code: 'pm.environment.get("variable_key");' },
+    { title: 'Set an environment variable', code: 'pm.environment.set("variable_key", "variable_value");' },
+    { title: 'Status code: Code is 200', code: 'pm.test("Status code is 200", function () {\n    pm.response.to.have.status(200);\n});' },
+    { title: 'Response body: Contains string', code: 'pm.test("Body matches string", function () {\n    pm.expect(pm.response.text()).to.include("string_you_want_to_search");\n});' },
+    { title: 'Response body: JSON value check', code: 'pm.test("Your test name", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.value).to.eql(100);\n});' },
+    { title: 'Add a request header (Pre-request)', code: 'pm.request.headers.add({ key: "Authorization", value: "Bearer token" });' }
 ];
 
 export const ScriptsTab: React.FC = () => {
@@ -22,7 +22,7 @@ export const ScriptsTab: React.FC = () => {
 
     const updateExtraLib = (monaco: Monaco, type: 'pre-request' | 'post-response') => {
         const libContent = `
-declare const cedClient: {
+interface CEDClient {
     globals: {
         get(key: string): any;
         set(key: string, value: any): void;
@@ -57,7 +57,10 @@ ${type === 'post-response' ? `
     test(name: string, fn: () => void): void;
     expect(val: any): any;
 ` : ''}
-};
+}
+
+declare const cedClient: CEDClient;
+declare const pm: CEDClient;
 `;
         monaco.languages.typescript.javascriptDefaults.setExtraLibs([{
             content: libContent,

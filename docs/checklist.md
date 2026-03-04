@@ -32,9 +32,11 @@
 - [x] Khởi chạy `IndexedDB/localforage` để tự động lưu lại phiên làm việc (Cửa sổ bật lại không mất dữ liệu).
 
 ## Giai đoạn 4: Hoàn thiện (Polishing & Advanced)
-- [ ] Tính năng Beautify: Nút format làm đẹp Code JSON.
-- [ ] Response Viewer: Hiển thị highlight JSON syntax đẹp mắt, hỗ trợ Preview ảnh hoặc xem Raw text.
-- [ ] Tự động lưu vết Request thành danh sách History cho người dùng lùi trạng thái nhanh.
+- [x] Tính năng Beautify: Nút format làm đẹp Code JSON phản hồi.
+- [x] Response Viewer: Hiển thị highlight JSON syntax, hỗ trợ Preview ảnh (Binary) & Raw text.
+- [x] Tự động lưu vết Request thành danh sách History tách biệt trong Sidebar.
+- [x] Monaco IntelliSense: Hỗ trợ gợi ý object `pm` và các phương thức `pm.request.headers.add`.
+- [x] Bug Fixed: Sửa lỗi trùng lặp Header khi sử dụng tính năng Presets.
 - [ ] Khả năng xuất/nhập file Collection chuẩn để dùng chung với Postman.
 - [ ] Tính năng thay đổi giao diện DarkMode (Chủ đề sáng/tối).
 - [ ] Thêm các hiệu ứng (Animations) vi mô khi Loading và thao tác UI.

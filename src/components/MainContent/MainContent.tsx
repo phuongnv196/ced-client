@@ -11,6 +11,7 @@ import { ResponsePanel } from '../ResponsePanel';
 import { useRequestStore } from '../../store/useRequestStore';
 import { sendRequest } from '../../services/RequestEngine';
 import { resolveVariables } from '../../utils/variableResolver';
+import { fileRegistry } from '../../utils/fileRegistry';
 import clsx from 'clsx';
 import './MainContent.css';
 
@@ -46,7 +47,7 @@ const updateQuery = (url: string, params: DataGridRow[]): string => {
 };
 
 export const MainContent: React.FC = () => {
-    const { tabs, activeTabId, updateActiveTab, variables } = useRequestStore();
+    const { tabs, activeTabId, updateActiveTab, variables, addToHistory } = useRequestStore();
     const activeTab = tabs.find(t => t.id === activeTabId);
 
     if (!activeTab) {
@@ -95,6 +96,12 @@ export const MainContent: React.FC = () => {
             });
             requestBody = ue;
             requestBodyType = 'x-www-form-urlencoded';
+        } else if (body.type === 'binary') {
+            const file = fileRegistry.get(activeTab.id);
+            if (file) {
+                requestBody = file;
+                requestBodyType = 'binary';
+            }
         }
 
         try {
@@ -110,17 +117,21 @@ export const MainContent: React.FC = () => {
             updateActiveTab({
                 response: apiResponse
             });
+
+            addToHistory({ ...activeTab, response: apiResponse });
         } catch (error: any) {
+            const errorResponse = {
+                status: 0,
+                statusText: 'Error',
+                headers: {},
+                data: error.message || 'Error occurred',
+                time: 0,
+                size: '0 B'
+            };
             updateActiveTab({
-                response: {
-                    status: 0,
-                    statusText: 'Error',
-                    headers: {},
-                    data: error.message || 'Error occurred',
-                    time: 0,
-                    size: '0 B'
-                }
+                response: errorResponse
             });
+            addToHistory({ ...activeTab, response: errorResponse });
         }
     };
 
@@ -155,8 +166,8 @@ export const MainContent: React.FC = () => {
                 onSend={handleSend}
             />
 
-            <Group orientation="vertical" className="flex-1">
-                <Panel defaultSize={65} minSize={30} className="bg-white flex flex-col">
+            <Group orientation="vertical" className="flex-1 overflow-hidden">
+                <Panel defaultSize={70} minSize={30} className="bg-white flex flex-col">
                     {/* Request Tabs */}
                     <div className="flex border-b border-slate-200 text-sm px-4 pt-2 gap-6 font-medium text-slate-500">
                         {['Params', 'Authorization', 'Headers', 'Body', 'Scripts'].map((tab) => (
@@ -195,7 +206,7 @@ export const MainContent: React.FC = () => {
 
                 <Separator className="h-1 bg-slate-200 hover:bg-blue-400 transition-colors cursor-row-resize" />
 
-                <Panel defaultSize={35} minSize={20} className="bg-white flex flex-col">
+                <Panel defaultSize={30} minSize={20} className="bg-white flex flex-col">
                     <ResponsePanel response={response} />
                 </Panel>
             </Group>
