@@ -4,7 +4,42 @@
 
 .no-scrollbar {
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-in {
+    animation: slideInFromTop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glassmorphism for the dropdown */
+.shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.bg-slate-50\/50 {
+    backdrop-filter: blur(12px);
+    background-color: rgba(248, 250, 252, 0.5);
+}
+
+/* Custom indicator for active tab in dropdown */
+.bg-orange-50\/50 {
+    background-color: rgba(255, 247, 237, 0.7);
+    border-left: 3px solid #f97316;
+}
+
+/* Search shortcut badge */
+kbd {
+    font-family: inherit;
 }

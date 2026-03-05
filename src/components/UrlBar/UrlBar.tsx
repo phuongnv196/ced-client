@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '../Button';
+import { VariableInput } from '../VariableInput/VariableInput';
 import clsx from 'clsx';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Save } from 'lucide-react';
 
 const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
@@ -19,9 +20,10 @@ interface UrlBarProps {
     onChangeMethod: (method: string) => void;
     onChangeUrl: (url: string) => void;
     onSend: () => void;
+    onSave: () => void;
 }
 
-export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onChangeUrl, onSend }) => {
+export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onChangeUrl, onSend, onSave }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     return (
@@ -52,7 +54,6 @@ export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onC
                                         methodColors[m] || 'text-slate-700',
                                         method === m ? 'bg-slate-50' : ''
                                     )}
-                                    // onClick={() => { setMethod(m); setIsDropdownOpen(false); }}  // Fire on mousedown to prevent onBlur race condition
                                     onMouseDown={(e) => {
                                         e.preventDefault();
                                         onChangeMethod(m);
@@ -66,11 +67,12 @@ export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onC
                     )}
                 </div>
 
-                <input
+                <VariableInput
                     type="text"
-                    className="flex-1 outline-none px-3 py-2 text-sm font-medium w-full bg-white ml-[1px]"
+                    className="flex-1 bg-white ml-[1px]"
+                    inputClassName="px-3 py-2 text-sm font-medium"
                     value={url}
-                    onChange={(e) => onChangeUrl(e.target.value)}
+                    onChangeValue={(val) => onChangeUrl(val)}
                     placeholder="Enter request URL"
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -80,9 +82,15 @@ export const UrlBar: React.FC<UrlBarProps> = ({ method, url, onChangeMethod, onC
                 />
             </div>
 
-            <Button variant="primary" size="md" onClick={onSend}>
-                Send
-            </Button>
+            <div className="flex gap-1 shrink-0">
+                <Button variant="secondary" size="md" onClick={onSave} className="flex gap-2 items-center bg-white border border-slate-300 px-4">
+                    <Save className="w-4 h-4 text-slate-500" />
+                    <span className="font-bold">Save</span>
+                </Button>
+                <Button variant="primary" size="md" onClick={onSend} className="bg-orange-600 hover:bg-orange-700 font-bold px-8 shadow-sm active:scale-95 transition-all">
+                    Send
+                </Button>
+            </div>
         </div>
     );
 };

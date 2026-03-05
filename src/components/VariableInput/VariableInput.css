@@ -1,0 +1,12 @@
+.variable-pill {
+    position: relative;
+    pointer-events: auto;
+    /* To catch mouse hover */
+    z-index: 20;
+    transition: all 0.1s ease;
+}
+
+.variable-pill:hover {
+    filter: brightness(0.95);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+}

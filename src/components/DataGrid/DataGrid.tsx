@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Trash2, X } from 'lucide-react';
+import { VariableInput } from '../VariableInput/VariableInput';
 import clsx from 'clsx';
 
 export interface DataGridRow {
@@ -11,6 +12,7 @@ export interface DataGridRow {
     readonly?: boolean;
     type?: 'text' | 'file';
     fileValue?: File | null;
+    system?: boolean;
 }
 
 interface DataGridProps {
@@ -99,14 +101,15 @@ export const DataGrid: React.FC<DataGridProps> = ({ rows, onChange, supportFile 
                                 </td>
                                 <td className="border-r border-slate-200 group/key relative">
                                     <div className="flex items-center h-full w-full">
-                                        <input
+                                        <VariableInput
                                             type="text"
                                             value={row.key}
-                                            onChange={(e) => handleChange(row.id, 'key', e.target.value)}
+                                            onChangeValue={(val) => handleChange(row.id, 'key', val)}
                                             placeholder="Key"
                                             readOnly={row.readonly}
-                                            className={clsx(
-                                                "flex-1 h-full px-3 py-1.5 outline-none bg-transparent min-w-0 w-full",
+                                            className="flex-1 w-full"
+                                            inputClassName={clsx(
+                                                "h-full px-3 py-1.5 min-w-0 w-full",
                                                 !row.enabled && !isEmpty && "text-slate-400 line-through decoration-slate-300",
                                                 row.readonly && "text-slate-500 font-medium cursor-default"
                                             )}
@@ -163,14 +166,15 @@ export const DataGrid: React.FC<DataGridProps> = ({ rows, onChange, supportFile 
                                             )}
                                         </div>
                                     ) : (
-                                        <input
+                                        <VariableInput
                                             type="text"
                                             value={row.value}
-                                            onChange={(e) => handleChange(row.id, 'value', e.target.value)}
+                                            onChangeValue={(val) => handleChange(row.id, 'value', val)}
                                             placeholder="Value"
                                             readOnly={row.readonly}
-                                            className={clsx(
-                                                "w-full h-full px-3 py-1.5 outline-none bg-transparent",
+                                            className="w-full h-full"
+                                            inputClassName={clsx(
+                                                "px-3 py-1.5 w-full",
                                                 !row.enabled && !isEmpty && "text-slate-400 line-through decoration-slate-300",
                                                 row.readonly && "text-slate-500 cursor-default"
                                             )}

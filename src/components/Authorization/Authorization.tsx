@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useRequestStore } from '../../store/useRequestStore';
+import { VariableInput } from '../VariableInput/VariableInput';
 
 const authTypes = [
     { id: 'noauth', label: 'No Auth' },
@@ -73,22 +74,24 @@ export const Authorization: React.FC = () => {
                         <h3 className="text-slate-700 font-semibold text-base">API Key Authorization</h3>
                         <div className="flex items-center gap-4">
                             <label className={labelClass}>Key</label>
-                            <input
+                            <VariableInput
                                 type="text"
                                 value={auth.apiKey.key}
-                                onChange={(e) => setAuth({ apiKey: { ...auth.apiKey, key: e.target.value } })}
+                                onChangeValue={(val) => setAuth({ apiKey: { ...auth.apiKey, key: val } })}
                                 placeholder="Header or param name"
-                                className={inputClass}
+                                className="flex-1 border border-slate-300 rounded focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-colors bg-white"
+                                inputClassName="px-3 py-2 text-sm w-full"
                             />
                         </div>
                         <div className="flex items-center gap-4">
                             <label className={labelClass}>Value</label>
-                            <input
+                            <VariableInput
                                 type="text"
                                 value={auth.apiKey.value}
-                                onChange={(e) => setAuth({ apiKey: { ...auth.apiKey, value: e.target.value } })}
+                                onChangeValue={(val) => setAuth({ apiKey: { ...auth.apiKey, value: val } })}
                                 placeholder="API key value"
-                                className={inputClass}
+                                className="flex-1 border border-slate-300 rounded focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-colors bg-white"
+                                inputClassName="px-3 py-2 text-sm w-full"
                             />
                         </div>
                         <div className="flex items-center gap-4">
@@ -119,13 +122,15 @@ export const Authorization: React.FC = () => {
                         <h3 className="text-slate-700 font-semibold text-base">Bearer Token</h3>
                         <div className="flex items-start gap-4">
                             <label className={`${labelClass} mt-2`}>Token</label>
-                            <textarea
-                                value={auth.bearer}
-                                onChange={(e) => setAuth({ bearer: e.target.value })}
-                                placeholder="Enter token"
-                                rows={3}
-                                className="flex-1 border border-slate-300 rounded px-3 py-2 outline-none text-sm font-mono focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors resize-none"
-                            />
+                            <div className="flex-1 min-h-[80px] border border-slate-300 rounded focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-colors bg-white">
+                                <VariableInput
+                                    value={auth.bearer}
+                                    onChangeValue={(val) => setAuth({ bearer: val })}
+                                    placeholder="Enter token"
+                                    className="w-full h-full"
+                                    inputClassName="px-3 py-2 outline-none text-sm font-mono resize-none w-full"
+                                />
+                            </div>
                         </div>
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
                             <strong>Preview:</strong> Authorization: Bearer {auth.bearer ? auth.bearer.substring(0, 20) + (auth.bearer.length > 20 ? '...' : '') : '<token>'}

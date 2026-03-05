@@ -42,12 +42,16 @@ export interface RequestTab {
     response: ResponseData | null;
     isDirty: boolean;
     activeSubTab: string;
+    collectionId?: string; // Track which collection this request belongs to
+    originalId?: string;   // Original ID in collection
 }
 
 export interface RequestCollection {
     id: string;
     name: string;
     requests: Partial<RequestTab>[];
+    variables: Record<string, string>;
+    isOpen?: boolean;
 }
 
 interface RequestState {
@@ -66,9 +70,21 @@ interface RequestState {
     setVariable: (key: string, value: string) => void;
     deleteVariable: (key: string) => void;
     setCollections: (collections: RequestCollection[]) => void;
+    addCollection: (name: string) => void;
+    removeCollection: (id: string) => void;
+    updateCollection: (id: string, updates: Partial<RequestCollection>) => void;
+    saveRequestToCollection: (collectionId: string, request: Partial<RequestTab>) => void;
+    setCollectionVariable: (collectionId: string, key: string, value: string) => void;
+    deleteCollectionVariable: (collectionId: string, key: string) => void;
     addToHistory: (tab: RequestTab) => void;
     clearHistory: () => void;
     duplicateTab: (id: string) => void;
+    renameTab: (id: string, name: string) => void;
+    renameCollectionRequest: (collectionId: string, requestId: string, name: string) => void;
+    renameRequest: (id: string, name: string) => void;
+    recentlyClosedTabs: RequestTab[];
+    restoreTab: (tab: RequestTab) => void;
+    clearRecentlyClosed: () => void;
 }
 
 const createDefaultTab = (): RequestTab => ({
@@ -126,10 +142,15 @@ export const useRequestStore = create<RequestState>()(
                     requests: [
                         { id: 'req_1', name: 'Create session', method: 'POST', url: '{{baseUrl}}/models/session' },
                         { id: 'req_2', name: 'Get Models', method: 'GET', url: '{{baseUrl}}/models' },
-                    ]
+                    ],
+                    variables: {
+                        baseUrl: '{{global_baseUrl}}'
+                    },
+                    isOpen: true
                 }
             ],
             history: [],
+            recentlyClosedTabs: [],
 
             addTab: (tabData) => {
                 const newTab = { ...createDefaultTab(), ...tabData };
@@ -141,6 +162,7 @@ export const useRequestStore = create<RequestState>()(
 
             removeTab: (id) => {
                 set((state) => {
+                    const tabToClose = state.tabs.find(t => t.id === id);
                     const newTabs = state.tabs.filter((t) => t.id !== id);
                     let newActiveId = state.activeTabId;
 
@@ -148,9 +170,13 @@ export const useRequestStore = create<RequestState>()(
                         newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
                     }
 
+                    const updatedTabs = newTabs.length > 0 ? newTabs : [createDefaultTab()];
+                    const finalActiveId = newActiveId || updatedTabs[updatedTabs.length - 1].id;
+
                     return {
-                        tabs: newTabs.length > 0 ? newTabs : [createDefaultTab()],
-                        activeTabId: newActiveId || (newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null),
+                        tabs: updatedTabs,
+                        activeTabId: finalActiveId,
+                        recentlyClosedTabs: tabToClose ? [tabToClose, ...state.recentlyClosedTabs].slice(0, 10) : state.recentlyClosedTabs
                     };
                 });
             },
@@ -190,6 +216,81 @@ export const useRequestStore = create<RequestState>()(
                 set({ collections });
             },
 
+            addCollection: (name: string) => {
+                const newCol: RequestCollection = {
+                    id: Math.random().toString(36).substring(7),
+                    name,
+                    requests: [],
+                    variables: {},
+                    isOpen: true
+                };
+                set((state) => ({ collections: [...state.collections, newCol] }));
+            },
+
+            removeCollection: (id: string) => {
+                set((state) => ({ collections: state.collections.filter(c => c.id !== id) }));
+            },
+
+            updateCollection: (id, updates) => {
+                set((state) => ({
+                    collections: state.collections.map(c => c.id === id ? { ...c, ...updates } : c)
+                }));
+            },
+
+            saveRequestToCollection: (collectionId, request) => {
+                set((state) => ({
+                    collections: state.collections.map(c => {
+                        if (c.id === collectionId) {
+                            const requestId = request.id || Math.random().toString(36).substring(7);
+                            const existingIdx = c.requests.findIndex(r => r.id === requestId);
+                            const newRequests = [...c.requests];
+                            if (existingIdx >= 0) {
+                                newRequests[existingIdx] = { ...request, id: requestId };
+                            } else {
+                                newRequests.push({ ...request, id: requestId });
+                            }
+                            return { ...c, requests: newRequests };
+                        }
+                        return c;
+                    }),
+                    // If any active tab matches the request being saved, link it
+                    tabs: state.tabs.map(t => {
+                        if (t.id === request.id) {
+                            return {
+                                ...t,
+                                collectionId: collectionId,
+                                originalId: request.id // Assuming it already has one or it's the same
+                            };
+                        }
+                        return t;
+                    })
+                }));
+            },
+
+            setCollectionVariable: (collectionId, key, value) => {
+                set((state) => ({
+                    collections: state.collections.map(c => {
+                        if (c.id === collectionId) {
+                            return { ...c, variables: { ...c.variables, [key]: value } };
+                        }
+                        return c;
+                    })
+                }));
+            },
+
+            deleteCollectionVariable: (collectionId, key) => {
+                set((state) => ({
+                    collections: state.collections.map(c => {
+                        if (c.id === collectionId) {
+                            const nextVars = { ...c.variables };
+                            delete nextVars[key];
+                            return { ...c, variables: nextVars };
+                        }
+                        return c;
+                    })
+                }));
+            },
+
             addToHistory: (tab: RequestTab) => {
                 set((state) => ({
                     history: [tab, ...state.history.filter(h => h.id !== tab.id)].slice(0, 50)
@@ -219,6 +320,67 @@ export const useRequestStore = create<RequestState>()(
                     activeTabId: newTab.id,
                 }));
             },
+
+            renameTab: (id, name) => {
+                set((state) => ({
+                    tabs: state.tabs.map(t => t.id === id ? { ...t, name } : t)
+                }));
+            },
+
+            renameCollectionRequest: (collectionId, requestId, name) => {
+                set((state) => ({
+                    collections: state.collections.map(c => {
+                        if (c.id === collectionId) {
+                            return {
+                                ...c,
+                                requests: c.requests.map(r => r.id === requestId ? { ...r, name } : r)
+                            };
+                        }
+                        return c;
+                    }),
+                    // Also update any open tabs that refer to this collection request
+                    tabs: state.tabs.map(t => (t.collectionId === collectionId && t.originalId === requestId) || t.id === requestId ? { ...t, name } : t)
+                }));
+            },
+
+            renameRequest: (id, name) => {
+                set((state) => {
+                    const tab = state.tabs.find(t => t.id === id);
+                    const newTabs = state.tabs.map(t => t.id === id ? { ...t, name } : t);
+
+                    let newCollections = state.collections;
+                    if (tab && tab.collectionId && tab.originalId) {
+                        newCollections = state.collections.map(c => {
+                            if (c.id === tab.collectionId) {
+                                return {
+                                    ...c,
+                                    requests: c.requests.map(r => r.id === tab.originalId ? { ...r, name } : r)
+                                };
+                            }
+                            return c;
+                        });
+                    }
+
+                    return {
+                        tabs: newTabs,
+                        collections: newCollections
+                    };
+                });
+            },
+
+            restoreTab: (tab) => {
+                const { tabs } = get();
+                if (tabs.find(t => t.id === tab.id)) return;
+                set((state) => ({
+                    tabs: [...state.tabs, tab],
+                    activeTabId: tab.id,
+                    recentlyClosedTabs: state.recentlyClosedTabs.filter(t => t.id !== tab.id)
+                }));
+            },
+
+            clearRecentlyClosed: () => {
+                set({ recentlyClosedTabs: [] });
+            }
         }),
         {
             name: 'request-storage',

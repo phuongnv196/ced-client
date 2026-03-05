@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { DataGrid } from '../DataGrid';
-import { Editor } from '@monaco-editor/react';
+import { Editor, type Monaco } from '@monaco-editor/react';
 import { ChevronDown, Upload, X, FileText, FileImage, FileArchive } from 'lucide-react';
 import { html as beautifyHtml } from 'js-beautify';
 import formatXml from 'xml-formatter';
@@ -120,8 +120,65 @@ export const BodyTab: React.FC = () => {
         ? { name: selectedFile.name, size: selectedFile.size, type: selectedFile.type }
         : body.binaryFile ?? null;
 
+    // Global variable providers for Monaco
+    const handleEditorBeforeMount = (monaco: Monaco) => {
+        if (!(monaco.languages as any)._cedVarProviderRegistered) {
+            (monaco.languages as any)._cedVarProviderRegistered = true;
+
+            monaco.languages.registerHoverProvider('*', {
+                provideHover: (model: any, position: any) => {
+                    const lineContent = model.getLineContent(position.lineNumber);
+                    const matches = [...lineContent.matchAll(/\{\{(.*?)\}\}/g)];
+                    for (const match of matches) {
+                        const idx = match.index!;
+                        // Check if exact position is within the {{variable}} string
+                        if (position.column - 1 >= idx && position.column - 1 <= idx + match[0].length) {
+                            const varName = match[1].trim();
+                            const { variables } = useRequestStore.getState();
+                            const val = variables[varName];
+
+                            return {
+                                range: new monaco.Range(position.lineNumber, idx + 1, position.lineNumber, idx + 1 + match[0].length),
+                                contents: val !== undefined
+                                    ? [{ value: `**${varName}**` }, { value: val }]
+                                    : [{ value: `**${varName}**` }, { value: `*(unresolved)*` }]
+                            };
+                        }
+                    }
+                    return null;
+                }
+            });
+
+            monaco.languages.registerCompletionItemProvider('*', {
+                triggerCharacters: ['{'],
+                provideCompletionItems: (model: any, position: any) => {
+                    const textUntilPosition = model.getValueInRange({
+                        startLineNumber: position.lineNumber,
+                        startColumn: Math.max(1, position.column - 2),
+                        endLineNumber: position.lineNumber,
+                        endColumn: position.column
+                    });
+
+                    if (textUntilPosition === '{{') {
+                        const { variables } = useRequestStore.getState();
+                        const suggestions = Object.entries(variables).map(([key, val]) => ({
+                            label: key,
+                            kind: monaco.languages.CompletionItemKind.Variable,
+                            insertText: `${key}}}`,
+                            detail: val,
+                            // Ensure range covers the typed characters if necessary, but simply inserting the key works
+                            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+                        } as any));
+                        return { suggestions };
+                    }
+                    return { suggestions: [] };
+                }
+            });
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-slate-50 relative">
             {/* Type Selector Bar */}
             <div className="flex px-4 py-2 border-b border-slate-200 items-center justify-between text-sm overflow-x-auto no-scrollbar shrink-0">
                 <div className="flex items-center gap-4">
@@ -198,6 +255,7 @@ export const BodyTab: React.FC = () => {
                             theme="light"
                             value={body.content}
                             onMount={handleEditorDidMount}
+                            beforeMount={handleEditorBeforeMount}
                             onChange={(val) => setBodyUpdate({ content: val || '' })}
                             options={{
                                 minimap: { enabled: false },
